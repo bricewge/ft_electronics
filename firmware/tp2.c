@@ -1,33 +1,66 @@
 #include <xc.h>
+#include <sys/attribs.h>
 
-int main(void)
+#define btn PORTDbits.RD8
+#define led LATFbits.LATF1
+#define q1 PORTCbits.RC12
+#define q2 PORTCbits.RC15
+#define freq 16000
+
+int        ft_next_frq (int frq)
 {
-    int prev = 0;
-    int but;
-    int times = 1;
-    int cnt = 0;
+    if (frq == freq)
+        return (freq / 2);
+    else if (frq == freq / 2)
+        return (freq / 4);
+    else if (frq == freq / 4)
+        return (freq / 8);
+    else if (frq == freq / 8)
+        return (freq / 16);
+    else if (frq == freq / 16)
+        return (freq);
+}
+
+int        ft_frq(int frq)
+{
+    static int event = 0;
+    static int nop = 0;
+    static int i_btn = 1;
+
+    i_btn = btn;
+    if (event && !i_btn && !nop)
+    {
+        frq = ft_next_frq(frq);
+        nop = 1;
+    }
+    if (i_btn)
+        nop = 0;
+    event = !i_btn && !nop ? 1 : 0;
+    return (frq);
+}
+
+int main(void) {
+    int clk;
+    int frq = freq;
+    int state = 0;
 
     TRISFbits.TRISF1 = 0;
-    TRISDbits.TRISD8 = 1;
-    while (1)
-    {
-        but = PORTDbits.RD8;
-        if (but == 0 && but != prev)
-        {
-            if (times == 5)
-                times = 1;
-            else
-                ++times;
+
+    clk = frq;
+    while (1) {
+        while (clk) {
+            frq = ft_frq(frq);
+            if (q1 || q2)
+                clk--;
+            state = 1;
         }
-        cnt = 0;
-        while (cnt != 16000 / times)
-        {
-            ++cnt;
+        led = state;
+        while (clk < frq) {
+            frq = ft_frq(frq);
+            if (q1 || q2)
+                clk++;
+            state = 0;
         }
-        if (LATFbits.LATF1 == 1)
-            LATFbits.LATF1 = 0;
-        else
-            LATFbits.LATF1 = 1;
-        prev = but;
+        led = state;
     }
 }
